@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="OracleZoom: privileged-latent distillation for faithful extreme super-resolution, 4x to 256x.">
+  <meta property="og:title" content="OracleZoom: Privileged-Latent Distillation for Extreme Super-Resolution">
+  <meta property="og:description" content="At extreme zoom the model must invent detail. OracleZoom makes that invention faithful, with a 7.1M-parameter adapter trained on 1,000 images.">
+  <meta property="og:image" content="static/images/fig_overview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>OracleZoom</title>
+
+  <link rel="icon" href="static/images/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <style>
+    body { font-family: 'Inter', -apple-system, sans-serif; }
+    .title, .subtitle, h1, h2, h3 { font-family: 'Inter', sans-serif; }
+    .stat-card { border: 1px solid #e6e6e6; border-radius: 10px; padding: 1.1rem 1rem; height: 100%;
+                 background: #fff; text-align: center; }
+    .stat-num  { font-size: 2.1rem; font-weight: 700; line-height: 1.1; color: #2a78d6; }
+    .stat-lab  { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .05em; color: #7a7a7a;
+                 margin-top: .35rem; }
+    .stat-sub  { font-size: 0.86rem; color: #4a4a4a; margin-top: .3rem; }
+    .loss-card { border-left: 4px solid #2a78d6; padding: .6rem 0 .6rem .9rem; margin-bottom: .9rem; }
+    .loss-card .tag-letter { font-weight: 700; color: #2a78d6; }
+    table.res td, table.res th { vertical-align: middle; font-variant-numeric: tabular-nums; }
+    table.res tr.ours { background: #eef5fd; font-weight: 600; }
+    .fig { border: 1px solid #ededed; border-radius: 8px; }
+    .note { font-size: 0.9rem; color: #6a6a6a; }
+    .link-block a { margin: .25rem; }
+  </style>
+</head>
+<body>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">OracleZoom</h1>
+          <h2 class="subtitle is-4" style="margin-top:-0.5rem;">
+            Privileged-Latent Distillation for Extreme Super-Resolution
+          </h2>
+
+          <div class="is-size-5 publication-authors" style="margin-top:1.2rem;">
+            <span class="author-block">
+              <a href="https://XXXX" target="_blank">XXXX</a>
+            </span>
+          </div>
+          <div class="is-size-6 publication-authors">
+            <span class="author-block">XXXX</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links link-block">
+              <a href="https://github.com/XXXX/OracleZoom" target="_blank"
+                 class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="fab fa-github"></i></span><span>Code</span>
+              </a>
+              <a href="https://huggingface.co/XXXX/OracleZoom" target="_blank"
+                 class="external-link button is-normal is-rounded is-dark">
+                <span class="icon">🤗</span><span>Model</span>
+              </a>
+              <a href="https://huggingface.co/datasets/XXXX/OPDZoom-4KLSDB-train" target="_blank"
+                 class="external-link button is-normal is-rounded is-dark">
+                <span class="icon">🤗</span><span>Dataset</span>
+              </a>
+            </div>
+            <p class="note" style="margin-top:.8rem;">Paper under review.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TEASER ===================== -->
+<section class="hero is-small">
+  <div class="hero-body">
+    <div class="container is-max-widescreen">
+      <img src="static/images/fig_overview.png" alt="The OracleZoom training objective, five terms." class="fig">
+      <h2 class="subtitle has-text-centered" style="margin-top:1rem;">
+        One image, two scales, five loss terms. The <b>privileged</b> signals (dashed, orange) exist
+        <b>only at training time</b>. At test time the model sees no ground truth at all.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== KEY RESULTS ===================== -->
+<section class="hero is-small is-light">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Key Results</h2>
+      <div class="columns is-multiline" style="margin-top:1rem;">
+        <div class="column is-3"><div class="stat-card">
+          <div class="stat-num">0.711</div>
+          <div class="stat-lab">CLIPIQA, mean</div>
+          <div class="stat-sub">vs 0.617 for the best baseline, over 6 test sets and 4&times;&ndash;256&times;</div>
+        </div></div>
+        <div class="column is-3"><div class="stat-card">
+          <div class="stat-num">0.707</div>
+          <div class="stat-lab">CLIPIQA at 256&times;</div>
+          <div class="stat-sub">the only method above 0.70 at the deepest zoom (next best 0.576)</div>
+        </div></div>
+        <div class="column is-3"><div class="stat-card">
+          <div class="stat-num">2&ndash;5&times;</div>
+          <div class="stat-lab">less hallucination</div>
+          <div class="stat-sub">than the strongest baseline, judged past 4&times; where no reference exists</div>
+        </div></div>
+        <div class="column is-3"><div class="stat-card">
+          <div class="stat-num">7.1M</div>
+          <div class="stat-lab">trained parameters</div>
+          <div class="stat-sub">a rank-16 adapter on a frozen backbone, trained on 1,000 images</div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ABSTRACT ===================== -->
+<section class="section" id="abstract">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Abstract</h2>
+    <div class="content has-text-justified">
+      <p>
+        Recursive super-resolution reaches extreme magnification by applying a 4&times; diffusion
+        backbone step after step. At these factors the backbone cannot recover detail, it must
+        <i>invent</i> it. So the question is not whether the zoom looks sharp, but whether the
+        invented detail is <b>faithful</b> or <b>hallucinated</b>, and methods tuned for sharpness
+        hallucinate more as depth grows.
+      </p>
+      <p>
+        We teach faithfulness by <b>privileged-latent distillation</b>: a teacher allowed to see the
+        ground-truth high-resolution patch at training time only distills its real detail into the
+        student, in decode space. Because ground truth exists only at 4&times;, we carry this faithful
+        prior deeper by letting the student pursue a detail reward, and <b>leash</b> that reward with a
+        KL term to the trusted base model, so the added detail stays inside the distilled prior
+        instead of drifting into a metric-gaming texture.
+      </p>
+      <p>
+        Our zoom is as sharp as six recent methods on no-reference metrics, and far more faithful: most
+        faithful at 4&times; across the benchmark, and past 4&times; two cross-family vision&ndash;language
+        judges prefer it. All of this comes from a 7.1M-parameter rank-16 adapter on a frozen backbone,
+        trained on only 1,000 curated images, and it drops into the existing recursion unchanged.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== THE PROBLEM ===================== -->
+<section class="section is-light" id="problem" style="background:#fafafa;">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">The problem: a sharpness score cannot tell truth from invention</h2>
+    <div class="content has-text-justified">
+      <p>
+        Past 4&times; there is no ground truth to compare against. The usual response is to optimise a
+        no-reference sharpness metric. But such a metric rewards <i>confident</i> detail, not
+        <i>correct</i> detail, so it can be gamed.
+      </p>
+      <p>
+        Our own ablation shows this directly. Remove the KL leash and the model produces the
+        <b>sharpest scores of any configuration</b> (CLIPIQA 0.756, the best cell in the study) while
+        also producing the <b>most hallucination</b> (0.365, the worst cell). Sharper and less true at
+        the same time. The reward stops adding real detail and starts printing a repetitive crosshatch.
+      </p>
+    </div>
+    <img src="static/images/fig_ablation_hack.png" alt="Reward hacking: sharper scores, invented texture." class="fig">
+    <p class="note has-text-centered" style="margin-top:.8rem;">
+      Unleashed, the sharpness reward games the metric with a repetitive texture. The KL leash is what
+      keeps the added detail inside the distilled prior.
+    </p>
+  </div>
+</section>
+
+<!-- ===================== METHOD ===================== -->
+<section class="section" id="method">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">The objective</h2>
+    <p class="content has-text-centered note">
+      Five terms. Weights are the reported configuration.
+      <code>x&#770;<sub>1</sub></code> is the 4&times; output, <code>x&#770;<sub>2</sub></code> the 16&times; output,
+      <code>z</code> a latent.
+    </p>
+
+    <div class="columns is-multiline" style="margin-top:1.5rem;">
+      <div class="column is-6"><div class="loss-card">
+        <span class="tag-letter">A &middot; 4&times; fidelity</span> &nbsp;<code>LPIPS(x&#770;<sub>1</sub>, x<sub>1</sub>)</code> &nbsp;<b>&times;1.0</b>
+        <p>Match the real high-resolution patch. This is the <i>only</i> scale where a true answer
+           exists, and it is measured in picture space, not latent space: an ablation found a latent
+           target was worse than doing no distillation at all.</p>
+      </div></div>
+      <div class="column is-6"><div class="loss-card">
+        <span class="tag-letter">B &middot; Cycle coherence</span> &nbsp;<code>LPIPS(&darr;<sub>4</sub>x&#770;<sub>2</sub>, &Pi;(x<sub>1</sub>))</code> &nbsp;<b>&times;1.0</b>
+        <p>Zoom to 16&times;, shrink the result back by 4, and check it still matches the region it
+           zoomed into. A consistency rule replaces a label that does not exist.</p>
+      </div></div>
+      <div class="column is-6"><div class="loss-card">
+        <span class="tag-letter">C &middot; Sharpness reward</span> &nbsp;<code>&minus;TOPIQ-NR(x&#770;<sub>2</sub>)</code> &nbsp;<b>&times;0.4</b>
+        <p>Coherence alone rewards playing safe, because shrinking a blurry image also matches. Something
+           has to actively ask for detail past 4&times;.</p>
+      </div></div>
+      <div class="column is-6"><div class="loss-card">
+        <span class="tag-letter">D &middot; KL leash</span> &nbsp;<code>&#8214;z<sub>2</sub> &minus; z<sub>2</sub><sup>base</sup>&#8214;&sup2;</code> &nbsp;<b>&times;8.0</b>
+        <p>Penalise drift from the untouched base model on the same input. The largest weight of the
+           five, because it restrains the one term that misbehaves. The base is <b>fixed</b>, never a
+           moving average: a moving anchor would anchor nothing.</p>
+      </div></div>
+      <div class="column is-6"><div class="loss-card">
+        <span class="tag-letter">E &middot; Privileged EMA</span> &nbsp;<code>&#8214;z<sub>1</sub> &minus; z<sub>1</sub><sup>EMA</sup>&#8214;&sup2;</code> &nbsp;<b>&times;0.1</b>
+        <p>A slow average copy of the adapter, shown the privileged input, gives a second and steadier
+           4&times; target. The smallest term, and honestly the least load-bearing: removing it moves
+           every metric within noise.</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== RESULTS ===================== -->
+<section class="section is-light" id="results" style="background:#fafafa;">
+  <div class="container is-max-widescreen">
+    <h2 class="title is-3 has-text-centered">Results</h2>
+    <p class="content has-text-centered note">
+      Every method is run as the SR backbone <b>inside the identical recursion</b> (512&sup2; crop,
+      4&times; per step, four steps to 256&times;) and scored by one pinned metric harness, so the
+      comparison isolates the backbone rather than the zoom scaffolding.
+    </p>
+
+    <div class="table-container">
+      <table class="table is-fullwidth is-hoverable res">
+        <thead>
+          <tr>
+            <th rowspan="2">Method</th>
+            <th colspan="7" class="has-text-centered">No-reference quality: CLIPIQA &uarr; (mean over 4&ndash;256&times;)</th>
+            <th colspan="2" class="has-text-centered">Fidelity @4&times;</th>
+            <th rowspan="2" class="has-text-centered">CQ<sub>256</sub> &uarr;</th>
+          </tr>
+          <tr>
+            <th>4KLSDB</th><th>DIV8K</th><th>DRealSR</th><th>FFHQ</th><th>Flickr2K</th><th>RealSR</th>
+            <th>Mean</th><th>LPIPS &darr;</th><th>DISTS &darr;</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>HiT-SR</td><td>0.429</td><td>0.395</td><td>0.407</td><td>0.483</td><td>0.384</td><td>0.410</td><td>0.418</td><td>0.341</td><td>0.222</td><td>0.490</td></tr>
+          <tr><td>MambaIR</td><td>0.445</td><td>0.407</td><td>0.420</td><td>0.493</td><td>0.394</td><td>0.427</td><td>0.431</td><td>0.343</td><td>0.224</td><td>0.502</td></tr>
+          <tr><td>SwinIR</td><td>0.466</td><td>0.443</td><td>0.460</td><td>0.496</td><td>0.429</td><td>0.453</td><td>0.458</td><td>0.228</td><td>0.175</td><td>0.462</td></tr>
+          <tr><td>SeeSR</td><td>0.540</td><td>0.545</td><td>0.570</td><td>0.572</td><td>0.527</td><td>0.523</td><td>0.546</td><td><u>0.216</u></td><td><u>0.164</u></td><td>0.507</td></tr>
+          <tr><td>OSEDiff</td><td>0.557</td><td>0.595</td><td>0.592</td><td>0.573</td><td>0.586</td><td>0.572</td><td>0.579</td><td>0.336</td><td>0.228</td><td>0.530</td></tr>
+          <tr><td>Chain-of-Zoom</td><td><u>0.571</u></td><td><u>0.649</u></td><td><u>0.636</u></td><td><u>0.604</u></td><td><u>0.643</u></td><td><u>0.599</u></td><td><u>0.617</u></td><td><u>0.216</u></td><td>0.170</td><td><u>0.576</u></td></tr>
+          <tr class="ours"><td><b>OracleZoom</b></td><td><b>0.653</b></td><td><b>0.727</b></td><td><b>0.722</b></td><td><b>0.744</b></td><td><b>0.727</b></td><td><b>0.691</b></td><td><b>0.711</b></td><td><b>0.199</b></td><td><b>0.160</b></td><td><b>0.707</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>Bold</b> best, <u>underlined</u> second. Full-reference fidelity is reported at
+       4&times; only, because no ground truth exists deeper. That limit is enforced by the harness, not
+       chosen per run.</p>
+
+    <h3 class="title is-5" style="margin-top:2.5rem;">Faithfulness past 4&times;</h3>
+    <div class="content">
+      <p>
+        Where no reference exists, we ask two vision&ndash;language judges from model families outside
+        our pipeline, so the evaluation is not self-referential. Each item is region-aligned and
+        order-randomised, with labels burned into the images so the judge must read the label rather
+        than infer identity from ordering. Replies that do not parse are recorded as abstentions,
+        never guessed, and win-rate is computed over decided items only.
+      </p>
+      <p>
+        Both judges prefer our zoom. The main judge prefers it <b>68&ndash;78% of the time at
+        64&ndash;256&times;</b>, and finds <b>2&ndash;5&times; more hallucination</b> in Chain-of-Zoom,
+        the strongest baseline. At 4&times; the test does not separate the two (win-rate 0.50,
+        interval [0.38, 0.63]); the full-reference metrics settle that scale.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== QUALITATIVE ===================== -->
+<section class="section" id="examples">
+  <div class="container is-max-widescreen">
+    <h2 class="title is-3 has-text-centered">Qualitative comparison</h2>
+    <img src="static/images/fig_qual.png" alt="Qualitative comparison at 64x and 256x." class="fig">
+    <p class="note has-text-centered" style="margin-top:.8rem;">
+      At 64&times; and 256&times;. Regression backbones go smooth, other diffusion methods invent
+      texture that drifts from the scene. Ours keeps adding detail that stays consistent with what
+      the previous zoom level actually showed.
+    </p>
+    <img src="static/images/fig_zoomladder.png" alt="The full zoom ladder from 4x to 256x." class="fig" style="margin-top:2rem;">
+    <p class="note has-text-centered" style="margin-top:.8rem;">
+      The full ladder: 4&times; &rarr; 16&times; &rarr; 64&times; &rarr; 256&times;. Each step crops the
+      centre and zooms again, so cost per step is flat across scales.
+    </p>
+  </div>
+</section>
+
+<!-- ===================== MODELS & DATASET ===================== -->
+<section class="section is-light" id="models" style="background:#fafafa;">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Model, dataset, and code</h2>
+    <div class="columns is-multiline" style="margin-top:1rem;">
+      <div class="column is-4"><div class="stat-card">
+        <div class="stat-lab" style="margin-top:0;">Model</div>
+        <p style="margin:.6rem 0;"><b>OracleZoom</b><br><span class="note">rank-16 LoRA, 7.1M parameters</span></p>
+        <a href="https://huggingface.co/XXXX/OracleZoom" target="_blank"
+           class="button is-small is-rounded is-dark">🤗 Download</a>
+      </div></div>
+      <div class="column is-4"><div class="stat-card">
+        <div class="stat-lab" style="margin-top:0;">Training data</div>
+        <p style="margin:.6rem 0;"><b>4KLSDB curated</b><br><span class="note">1,000 images, curated from 129,484</span></p>
+        <a href="https://huggingface.co/datasets/XXXX/OPDZoom-4KLSDB-train" target="_blank"
+           class="button is-small is-rounded is-dark">🤗 Dataset</a>
+      </div></div>
+      <div class="column is-4"><div class="stat-card">
+        <div class="stat-lab" style="margin-top:0;">Code</div>
+        <p style="margin:.6rem 0;"><b>Train, evaluate, run</b><br><span class="note">MIT licensed</span></p>
+        <a href="https://github.com/XXXX/OracleZoom" target="_blank"
+           class="button is-small is-rounded is-dark"><span class="icon"><i class="fab fa-github"></i></span> GitHub</a>
+      </div></div>
+    </div>
+
+    <h3 class="title is-5" style="margin-top:2rem;">Run it on your own images</h3>
+    <pre style="border-radius:8px;"><code>git clone --recursive https://github.com/XXXX/OracleZoom.git
+cd OracleZoom &amp;&amp; uv sync
+
+python -m opd_zoom.teacher.oracle_infer --mode student \
+  --pld_lora path/to/adapter \
+  --gt_dir my_images/ --out out/ --rec_num 4 --upscale 4
+# out/scale1 = 4x  ...  out/scale4 = 256x</code></pre>
+    <p class="note">
+      Needs the Chain-of-Zoom checkpoints in <code>ref/coz/ckpt</code>. See the repository README for
+      the exact steps, and <code>REPRODUCE.md</code> for the locked hyperparameters behind every number
+      on this page.
+    </p>
+  </div>
+</section>
+
+<!-- ===================== BIBTEX ===================== -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@misc{oraclezoom2026,
+  title        = {OracleZoom: Privileged-Latent Distillation for Extreme Super-Resolution},
+  author       = {XXXX},
+  year         = {2026},
+  howpublished = {\url{https://github.com/XXXX/OracleZoom}},
+  note         = {Preprint, under review}
+}</code></pre>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content has-text-centered note">
+          <p>
+            Built on <a href="https://github.com/bryanswkim/Chain-of-Zoom" target="_blank">Chain-of-Zoom</a>
+            and <a href="https://github.com/cswry/OSEDiff" target="_blank">OSEDiff</a>. Metrics from
+            <a href="https://github.com/chaofengc/IQA-PyTorch" target="_blank">IQA-PyTorch</a>, pinned to one version.
+          </p>
+          <p>
+            Page adapted from the
+            <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>,
+            released under a
+            <a href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">CC BY-SA 4.0</a> licence.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
