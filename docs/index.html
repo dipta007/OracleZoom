@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="OracleZoom: Reference-Constrained Recursive Image Super-Resolution">
+  <meta name="description" content="Ground truth runs out before recursive zoom does. OracleZoom trains on its own predictions and uses the last available reference to constrain deeper detail. At 256x, an independent VLM judge prefers it over Chain-of-Zoom in 78% of decided comparisons.">
+  <meta name="keywords" content="super-resolution, recursive super-resolution, extreme zoom, diffusion, cross-scale consistency, self-distillation, hallucination, faithfulness, WACV 2027">
+  <meta name="author" content="Shubhashis Roy Dipta, Sourajit Saha, Shaswati Saha, Nobin Sarwar">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="OracleZoom">
+  <meta property="og:title" content="OracleZoom: Reference-Constrained Recursive Image Super-Resolution">
+  <meta property="og:description" content="OracleZoom uses the last available ground-truth reference to train deeper zooms. It improves image quality and reduces contradictions with earlier predictions.">
+  <meta property="og:url" content="https://dipta007.github.io/OracleZoom/">
+  <meta property="og:image" content="https://dipta007.github.io/OracleZoom/static/images/fig_qual_main-w1500.jpg">
+  <meta property="og:image:alt" content="Zoom comparison from 4x to 256x for OSEDiff, Chain-of-Zoom, and OracleZoom">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@iamdipta007">
+  <meta name="twitter:creator" content="@iamdipta007">
+  <meta name="twitter:title" content="OracleZoom: faithful detail at extreme zoom">
+  <meta name="twitter:description" content="A 7.1M-parameter adapter trained on 1,000 images. An independent VLM judge prefers OracleZoom over Chain-of-Zoom in 68% of decided comparisons at 64x and 78% at 256x.">
+  <meta property="twitter:image" content="https://dipta007.github.io/OracleZoom/static/images/fig_qual_main-w1500.jpg">
+
+  <!-- Academic -->
+  <meta name="citation_title" content="OracleZoom: On-Policy Self-Distillation Inspired Reference-Constrained Recursive Image Super Resolution">
+  <meta name="citation_author" content="Roy Dipta, Shubhashis">
+  <meta name="citation_author" content="Saha, Sourajit">
+  <meta name="citation_author" content="Saha, Shaswati">
+  <meta name="citation_author" content="Sarwar, Nobin">
+  <meta name="citation_publication_date" content="2026">
+  <meta name="theme-color" content="#0F6E9B">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <title>OracleZoom: Reference-Constrained Recursive Image Super-Resolution</title>
+
+  <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
+  <link rel="apple-touch-icon" href="static/images/favicon.ico">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+  <script defer src="static/js/index.js"></script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    "headline": "OracleZoom: On-Policy Self-Distillation Inspired Reference-Constrained Recursive Image Super Resolution",
+    "description": "OracleZoom trains on its own recursive predictions. Cross-scale alignment carries the last available ground-truth evidence beyond direct supervision, while quality guidance, a pretrained latent prior, and EMA consistency guide unresolved detail.",
+    "author": [
+      {
+        "@type": "Person",
+        "name": "Shubhashis Roy Dipta",
+        "url": "https://roydipta.com",
+        "affiliation": { "@type": "Organization", "name": "University of Maryland, Baltimore County" }
+      },
+      {
+        "@type": "Person",
+        "name": "Sourajit Saha",
+        "url": "https://sourajitcs.github.io/",
+        "affiliation": { "@type": "Organization", "name": "University of Maryland, Baltimore County" }
+      },
+      {
+        "@type": "Person",
+        "name": "Shaswati Saha",
+        "affiliation": { "@type": "Organization", "name": "University of Maryland, Baltimore County" }
+      },
+      {
+        "@type": "Person",
+        "name": "Nobin Sarwar",
+        "url": "https://smsnobin77.github.io/",
+        "affiliation": { "@type": "Organization", "name": "University of Maryland, Baltimore County" }
+      }
+    ],
+    "datePublished": "2026",
+    "url": "https://dipta007.github.io/OracleZoom/",
+    "keywords": ["Super-Resolution", "Extreme Zoom", "Diffusion", "Cross-Scale Consistency", "Self-Distillation", "Hallucination"],
+    "isAccessibleForFree": true
+  }
+  </script>
+
+  <style>
+    /* --- Project accent. The template's stylesheet is unchanged; only its tokens are re-pointed.
+           #0F6E9B and the #E8F6FC row tint are the blues the paper itself uses. --- */
+    :root {
+      --primary-color: #0F6E9B;
+      --primary-hover: #0A5476;
+      --accent-color: #3E9CC4;
+      --gradient-primary: linear-gradient(135deg, #0F6E9B 0%, #0A5476 100%);
+      --gradient-accent: linear-gradient(135deg, #3E9CC4 0%, #0F6E9B 100%);
+      --gradient-subtle: linear-gradient(135deg, #E8F6FC 0%, #CDE9F5 100%);
+      --ours-tint: #E8F6FC;
+    }
+
+    /* every number on this page lines up in its column */
+    .num, table, .stat-number { font-variant-numeric: tabular-nums; }
+
+    .stat-card {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      border: 1px solid var(--border-color);
+      height: 100%;
+    }
+    .stat-number { font-size: 2.3rem; font-weight: 800; color: var(--primary-color); line-height: 1.1; }
+    .stat-label { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; margin-top: 0.15rem; }
+    .stat-sub { color: var(--text-secondary); font-size: 0.82rem; margin-top: 0.4rem; line-height: 1.45; }
+    @media screen and (max-width: 768px) {
+      .stat-card { padding: 1rem 0.75rem; }
+      .stat-number { font-size: 1.7rem; }
+      .stat-label { font-size: 0.85rem; }
+    }
+
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .comparison-table { width: 100%; border-collapse: collapse; margin: 1rem 0; min-width: 620px; }
+    .comparison-table th, .comparison-table td {
+      padding: 0.6rem 0.9rem; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap;
+    }
+    .comparison-table thead th { background: #f1f5f9; font-weight: 600; font-size: 0.9rem; }
+    .comparison-table thead tr:first-child th { border-bottom: none; }
+    .comparison-table td.n, .comparison-table th.n { text-align: right; }
+    .comparison-table tbody tr:hover { background: #f8fafc; }
+    .comparison-table tr.ours { background: var(--ours-tint); }
+    .comparison-table tr.ours:hover { background: #DDF0FA; }
+    .comparison-table .group { text-align: center; color: var(--text-secondary); font-weight: 600; font-size: 0.82rem; }
+    .comparison-table .rule-left { border-left: 1px solid var(--border-color); }
+    @media screen and (max-width: 768px) {
+      .comparison-table { font-size: 0.85rem; min-width: 560px; }
+      .comparison-table th, .comparison-table td { padding: 0.45rem 0.6rem; }
+    }
+
+    .model-badge {
+      display: inline-block; padding: 0.1rem 0.6rem; border-radius: 9999px;
+      font-size: 0.75rem; font-weight: 600; background: var(--primary-color); color: #fff;
+    }
+    .badge-review {
+      display: inline-block; margin-top: 0.75rem; padding: 0.35rem 0.9rem;
+      border: 1px solid var(--border-color); border-radius: 10px;
+      background: #f8fafc; color: var(--text-secondary); font-weight: 600; font-size: 0.9rem;
+    }
+
+    figure { margin: 0; }
+    .figframe {
+      width: 100%; height: auto; display: block;
+      border-radius: 12px; border: 1px solid var(--border-color); background: #fff;
+      box-shadow: var(--shadow-md);
+    }
+    figcaption, .figcap {
+      margin-top: 0.7rem; color: var(--text-secondary); font-size: 0.92rem; line-height: 1.55;
+    }
+    figcaption b, .figcap b { color: var(--text-primary); }
+
+    /* the five training terms */
+    .loss-card {
+      border-left: 3px solid var(--primary-color); background: #fff;
+      padding: 0.15rem 0 0.15rem 0.9rem; margin-bottom: 1.1rem;
+    }
+    .loss-card h4 { font-size: 1rem; font-weight: 700; margin: 0 0 0.15rem 0; color: var(--text-primary); }
+    .loss-card p { font-size: 0.93rem; color: var(--text-secondary); margin: 0.25rem 0 0 0; line-height: 1.55; }
+    .weight {
+      font-size: 0.78rem; font-weight: 700; color: var(--primary-color);
+      background: var(--ours-tint); border-radius: 6px; padding: 0.1rem 0.45rem; margin-left: 0.35rem;
+      white-space: nowrap;
+    }
+
+    /* what the method does not do */
+    .scope { border: 1px solid var(--border-color); border-radius: 12px; background: #fff; padding: 1.25rem 1.5rem; }
+    .scope dt { font-weight: 700; color: var(--text-primary); margin-top: 1rem; }
+    .scope dt:first-child { margin-top: 0; }
+    .scope dd { margin: 0.2rem 0 0 0; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
+
+    /* judge chart */
+    .chart { width: 100%; height: auto; display: block; }
+    .chart .tick { fill: var(--text-secondary); font-size: 13px; }
+    .chart .row-label { fill: var(--text-primary); font-size: 14px; font-weight: 600; }
+    .chart .value { fill: var(--text-primary); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .chart .annot { fill: var(--text-secondary); font-size: 13px; }
+    .chart .axis-title { fill: var(--text-secondary); font-size: 13px; }
+    .chart .grid { stroke: #e8edf1; stroke-width: 1; }
+    .chart .refline { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .chart .ci { stroke: #0F6E9B; stroke-opacity: 0.38; stroke-width: 7; stroke-linecap: round; }
+    .chart .dot { fill: #0F6E9B; }
+
+    /* the disclosure is the section's only visible row, so it carries the heading weight */
+    #abstract { padding-top: 1.6rem; padding-bottom: 1.6rem; }
+    details.abstract-details > summary {
+      cursor: pointer; font-weight: 700; color: var(--primary-color); font-size: 1.15rem;
+      list-style: none; text-align: center;
+    }
+    details.abstract-details[open] > summary { margin-bottom: 0.9rem; }
+    details.abstract-details > summary::-webkit-details-marker { display: none; }
+    details.abstract-details > summary::before { content: "\25B8  "; }
+    details.abstract-details[open] > summary::before { content: "\25BE  "; }
+
+    details.raw { margin-top: 1rem; }
+    details.raw summary {
+      cursor: pointer; font-weight: 600; color: var(--primary-color); font-size: 0.92rem;
+    }
+
+    .icon svg { width: 1.1em; height: 1.1em; fill: currentColor; }
+    .resource-card {
+      border: 1px solid var(--border-color); border-radius: 12px; background: #fff;
+      padding: 1.25rem; height: 100%;
+    }
+    .resource-card h4 { font-weight: 700; margin-bottom: 0.2rem; }
+    .resource-card p { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.9rem; }
+
+    /* seven nav items do not fit a phone; let the row scroll instead of clipping BibTeX */
+    @media screen and (max-width: 768px) {
+      .nav-inner { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+      .nav-inner::-webkit-scrollbar { display: none; }
+      .nav-link { flex: 0 0 auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Scroll to Top -->
+  <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>
+  </button>
+
+  <!-- More Works -->
+  <div class="more-works-container">
+    <button class="more-works-btn" onclick="toggleMoreWorks()" title="View more works" aria-expanded="false">
+      More works
+      <span class="dropdown-arrow" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </span>
+    </button>
+    <div class="more-works-dropdown" id="moreWorksDropdown">
+      <div class="dropdown-header">
+        <h4>More works</h4>
+        <button class="close-btn" onclick="toggleMoreWorks()" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+        </button>
+      </div>
+      <div class="works-list">
+        <a href="https://dipta007.github.io/GanitLLM/" class="work-item" target="_blank" rel="noopener">
+          <div class="work-info">
+            <h5>GanitLLM: Difficulty-Aware Bengali Mathematical Reasoning through Curriculum-GRPO</h5>
+            <span class="work-venue">ACL 2026 (Findings)</span>
+          </div>
+        </a>
+        <a href="https://dipta007.github.io/VC-Inspector/" class="work-item" target="_blank" rel="noopener">
+          <div class="work-info">
+            <h5>VC-Inspector: Advancing Reference-free Evaluation of Video Captions with Factual Analysis</h5>
+            <span class="work-venue">ACL 2026</span>
+          </div>
+        </a>
+        <a href="https://dipta007.github.io/De-Presuppose/" class="work-item" target="_blank" rel="noopener">
+          <div class="work-info">
+            <h5>If We May De-Presuppose: Robustly Verifying Claims through Presupposition-Free Question Decomposition</h5>
+            <span class="work-venue">*SEM 2025</span>
+          </div>
+        </a>
+        <a href="https://dipta007.github.io/Q2E/" class="work-item" target="_blank" rel="noopener">
+          <div class="work-info">
+            <h5>Q2E: Query-to-Event Decomposition for Zero-Shot Multilingual Text-to-Video Retrieval</h5>
+            <span class="work-venue">AACL 2025</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Navigation -->
+  <nav class="sticky-nav" id="stickyNav">
+    <div class="nav-inner">
+      <a href="#abstract" class="nav-link">Abstract</a>
+      <a href="#problem" class="nav-link">Problem</a>
+      <a href="#method" class="nav-link">Method</a>
+      <a href="#results" class="nav-link">Results</a>
+      <a href="#examples" class="nav-link">Examples</a>
+      <a href="#scope" class="nav-link">Contributions</a>
+      <a href="#BibTeX" class="nav-link">BibTeX</a>
+    </div>
+  </nav>
+
+  <main id="main-content">
+
+  <!-- ============================ HERO ============================ -->
+  <section class="hero">
+    <div class="hero-body" style="padding-top: 3rem;">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">
+              OracleZoom<br>
+              <span style="font-size: 0.52em; font-weight: 700; line-height: 1.3; display: inline-block; margin-top: 0.5rem;">
+                On-Policy Self-Distillation Inspired Reference-Constrained Recursive Image Super-Resolution
+              </span>
+            </h1>
+
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="https://roydipta.com" target="_blank" rel="noopener">Shubhashis Roy Dipta</a><sup>*</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://sourajitcs.github.io/" target="_blank" rel="noopener">Sourajit Saha</a><sup>*</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://scholar.google.com/citations?hl=en&amp;user=_pTdzsAAAAAJ&amp;view_op=list_works&amp;sortby=pubdate" target="_blank" rel="noopener">Shaswati Saha</a>,
+              </span>
+              <span class="author-block">
+                <a href="https://smsnobin77.github.io/" target="_blank" rel="noopener">Nobin Sarwar</a>
+              </span>
+            </div>
+            <div class="is-size-6 publication-authors">
+              <span class="author-block">University of Maryland, Baltimore County</span>
+            </div>
+            <div class="is-size-7 publication-authors" style="color: var(--text-secondary);">
+              <span class="author-block"><sup>*</sup>Equal contribution.</span>
+              <span class="author-block">
+                {<a href="mailto:sroydip1@umbc.edu">sroydip1</a>,
+                 <a href="mailto:ssaha2@umbc.edu">ssaha2</a>,
+                 <a href="mailto:ssaha3@umbc.edu">ssaha3</a>,
+                 <a href="mailto:sms2@umbc.edu">sms2</a>}@umbc.edu
+              </span>
+            </div>
+            <div><span class="badge-review">WACV 2027, in submission</span></div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a href="https://arxiv.org/" target="_blank" rel="noopener"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><polyline points="14 3 14 8 19 8"></polyline></svg>
+                    </span>
+                    <span>Paper: preprint coming soon</span>
+                  </a>
+                </span>
+
+                <span class="link-block">
+                  <a href="https://github.com/dipta007/OracleZoom" target="_blank" rel="noopener"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.9 18.3 5.2 18.3 5.2c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.1 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"></path></svg>
+                    </span>
+                    <span>Code</span>
+                  </a>
+                </span>
+
+                <span class="link-block">
+                  <a href="https://huggingface.co/dipta007/OracleZoom" target="_blank" rel="noopener"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true">🤗</span><span>Model</span>
+                  </a>
+                </span>
+
+                <span class="link-block">
+                  <a href="https://huggingface.co/datasets/dipta007/OracleZoom-4KLSDB-train" target="_blank" rel="noopener"
+                     class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon" aria-hidden="true">🤗</span><span>Training data</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TL;DR ============================ -->
+  <section class="hero is-small">
+    <div class="hero-body" style="padding-top: 0.5em; padding-bottom: 0.5em;">
+      <div class="container is-max-desktop">
+        <p class="has-text-centered" style="font-size: 1.05rem; color: #475569; max-width: 800px; margin: 0 auto;"><strong>OracleZoom uses the last available ground-truth reference to train deeper zooms.</strong> Each step takes the model's previous prediction as input. Training constrains the structure that the reference can still verify and guides the finer detail that must be synthesized.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ KEY NUMBERS ============================ -->
+  <section class="hero is-small">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-multiline is-centered is-mobile">
+          <div class="column is-6-mobile is-6-tablet is-3-desktop">
+            <div class="stat-card">
+              <div class="stat-number">0.713</div>
+              <div class="stat-label">CLIPIQA, 4&times; to 256&times;</div>
+              <div class="stat-sub">Best of seven methods over seven test sets. Chain-of-Zoom scores 0.621.</div>
+            </div>
+          </div>
+          <div class="column is-6-mobile is-6-tablet is-3-desktop">
+            <div class="stat-card">
+              <div class="stat-number">0.706</div>
+              <div class="stat-label">CLIPIQA at 256&times;</div>
+              <div class="stat-sub">Mean quality at the deepest evaluated scale. Chain-of-Zoom scores 0.579.</div>
+            </div>
+          </div>
+          <div class="column is-6-mobile is-6-tablet is-3-desktop">
+            <div class="stat-card">
+              <div class="stat-number">78%</div>
+              <div class="stat-label">Preferred at 256&times;</div>
+              <div class="stat-sub">Over Chain-of-Zoom in decided comparisons by an independent vision-language model (VLM). Ties and abstentions excluded.</div>
+            </div>
+          </div>
+          <div class="column is-6-mobile is-6-tablet is-3-desktop">
+            <div class="stat-card">
+              <div class="stat-number">7.1M</div>
+              <div class="stat-label">Trained weights</div>
+              <div class="stat-sub">A rank-16 adapter on a frozen backbone, trained on 1,000 images.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ HERO FIGURE ============================ -->
+  <section class="hero is-small">
+    <div class="hero-body">
+      <div class="container is-max-widescreen">
+        <figure>
+          <a href="static/images/fig_qual_main-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+          <picture>
+            <source type="image/avif"
+                    srcset="static/images/fig_qual_main-w1100.avif 1100w, static/images/fig_qual_main-w2100.avif 2100w"
+                    sizes="(max-width: 768px) 100vw, 1200px">
+            <img class="figframe" src="static/images/fig_qual_main-w1500.jpg" width="2100" height="619"
+                 alt="Two scenes zoomed from 4x to 256x by OSEDiff, Chain-of-Zoom, and OracleZoom. OSEDiff smooths detail away, Chain-of-Zoom grows repetitive texture, OracleZoom keeps fur and skin structure oriented as the earlier zooms showed it.">
+          </picture>
+          </a>
+          <figcaption class="has-text-centered"><strong>Each prediction becomes the next input.</strong> Across these four zoom steps, OSEDiff loses local structure and Chain-of-Zoom develops repetitive textures. OracleZoom better preserves the direction and continuity of the visible fur and skin patterns. Boxes mark the region enlarged next.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ ABSTRACT ============================ -->
+  <section class="section hero is-light" id="abstract">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+
+          <details class="abstract-details">
+            <summary>Abstract</summary>
+          <div class="content has-text-justified">
+            <p>Recursive super-resolution reaches extreme magnification by feeding each prediction into the next zoom step. The source resolution needed for ground-truth targets grows rapidly, making supervision at every depth impractical. In our setting, direct targets stop at 4&times;, while evaluation continues through 16&times;, 64&times;, and 256&times;.</p>
+            <p><strong>OracleZoom</strong> trains on its own recursive predictions and carries the last available ground truth beyond that boundary. Direct supervision anchors the 4&times; output. Cross-scale alignment checks deeper predictions against the part of that reference still visible after projection. A frozen quality model guides unresolved detail, a KL-constrained pretrained prior limits drift, and an exponential moving average (EMA) adapter stabilizes training.</p>
+            <p>Across seven datasets, OracleZoom achieves 0.713 mean CLIPIQA and the best aggregate 4&times; LPIPS (0.199) and DISTS (0.160) among the compared methods. An independent VLM judge prefers it over Chain-of-Zoom in 68% of decided comparisons at 64&times; and 78% at 256&times;. A rank-16 LoRA adapter adds 7.1M trainable parameters and is trained on 1,000 images. Deeper-scale evaluation measures agreement with observable evidence; it cannot verify unseen fine detail.</p>
+          </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ PROBLEM ============================ -->
+  <section class="section" id="problem">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">The zoom continues after direct supervision ends</h2>
+
+      <div class="columns is-vcentered" style="margin-top: 0.5rem;">
+        <div class="column is-7">
+          <div class="content">
+            <p>A recursive super-resolution model enlarges a region, crops into its prediction, and repeats. Any mistake can become part of the next step's input. To supervise every step from a 512&times;512 input through 256&times;, the source would need to reach 131072&times;131072 pixels: about <strong>52 GB for one uncompressed RGB image</strong>.</p>
+            <p>Such targets are impractical at scale. Our setup provides ground truth at 4&times;, but no matching targets for deeper zooms. Captions can guide what the model draws. They cannot verify the textures or boundaries it adds.</p>
+          </div>
+        </div>
+        <div class="column is-5">
+          <figure>
+            <picture>
+              <source type="image/avif" srcset="static/images/fig_gt_boundary-w1200.avif">
+              <img class="figframe" src="static/images/fig_gt_boundary-w1200.jpg" width="1200" height="1053" loading="lazy"
+                   alt="A 512x512 crop zoomed to 4x, 16x, 64x and 256x. Ground truth is available up to 4x. Beyond it the required source would be 131072 by 131072 pixels, about 52 GB per image.">
+            </picture>
+            <figcaption>The required source size grows with each zoom. Direct supervision stops at 4&times; in our setup, leaving later predictions without targets at their own resolution.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="content" style="margin-top: 1.5rem;">
+        <p>A deeper zoom covers a smaller region of the last target. Reducing the prediction to the target's resolution lets us check its shapes and boundaries against that region, even though finer detail remains unverified.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ METHOD ============================ -->
+  <section class="section hero is-light" id="method">
+    <div class="container is-max-widescreen">
+      <h2 class="title is-3 has-text-centered">Use the last reference to check the next zoom</h2>
+      <p class="has-text-centered" style="color: var(--text-secondary); max-width: 760px; margin: 0 auto 1.75rem;">A 16&times; prediction has no matching target, but the region it enlarges is still visible in the 4&times; reference. OracleZoom projects that prediction back to the reference resolution and compares the aligned regions. This checks the structure that remains observable, even when finer detail cannot be verified.</p>
+
+      <figure>
+        <a href="static/images/fig_method-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+        <picture>
+          <source type="image/avif"
+                  srcset="static/images/fig_method-w1100.avif 1100w, static/images/fig_method-w2100.avif 2100w"
+                  sizes="(max-width: 768px) 100vw, 1200px">
+          <img class="figframe" src="static/images/fig_method-w1500.jpg" width="2100" height="938" loading="lazy"
+               alt="The OracleZoom training pipeline. A frozen latent SR model with a trainable LoRA adapter is applied recursively. Five terms: supervision at ground-truth scales, cross-scale ground-truth consistency, quality guidance, latent prior, and EMA consistency.">
+        </picture>
+        </a>
+        <figcaption class="has-text-centered">Training follows the model's own 4&times; to 16&times; predictions and backpropagates through both steps, so the deeper loss can improve the earlier prediction. The same learned adapter is reused through 256&times; at inference.</figcaption>
+      </figure>
+
+      <div class="columns is-multiline" style="margin-top: 2rem;">
+        <div class="column is-6">
+          <div class="loss-card">
+            <h4>1. Anchor the first prediction <span class="weight">weight 1.0</span></h4>
+            <p>At 4&times;, LPIPS compares the decoded prediction with the ground-truth image. This teaches the adapter to preserve observed content at the scale where a direct target exists.</p>
+          </div>
+          <div class="loss-card">
+            <h4>2. Carry the reference forward <span class="weight">weight 1.0</span></h4>
+            <p>Project the deeper prediction back to the last reference resolution. Match it to the corresponding ground-truth region with LPIPS. This constrains observable structure beyond the last directly supervised scale.</p>
+          </div>
+          <div class="loss-card">
+            <h4>3. Guide the unresolved detail <span class="weight">weight 0.4</span></h4>
+            <p>Many detailed images can shrink to the same lower-resolution view. A frozen quality model, TOPIQ-NR, encourages plausible detail within that ambiguity. TOPIQ-NR supplies the training reward and is excluded from the primary evaluation.</p>
+          </div>
+        </div>
+
+        <div class="column is-6">
+          <div class="loss-card">
+            <h4>4. Limit drift from the pretrained model <span class="weight">weight 8.0</span></h4>
+            <p>A KL prior keeps the adapted latent prediction close to the frozen SR model's prediction on the same input. It restrains quality optimization from introducing unsupported patterns.</p>
+          </div>
+          <div class="loss-card">
+            <h4>5. Stabilize training at the boundary <span class="weight">weight 0.1</span></h4>
+            <p>An exponential moving average (EMA) copy of the adapter supplies a steadier latent target using the ground-truth input at the supervision boundary. This branch is used only during training.</p>
+          </div>
+          <div class="loss-card">
+            <h4>A small adapter shared across scales</h4>
+            <p>We train a rank-16 LoRA adapter on the SD3 transformer: <strong>7.1M parameters, 1,000 images</strong>. The SR backbone, VAE decoder, and VLM prompter stay frozen. At inference, the adapter runs in the existing recursion without ground truth, the quality model, or the EMA branch.</p>
+          </div>
+        </div>
+      </div>
+      <h3 class="title is-4" style="margin-top: 2rem;">Why quality guidance needs a prior</h3>
+      <div class="content" style="margin-top: 1.5rem;">
+        <p>Removing the KL prior raises 16&times; CLIPIQA from 0.714 to 0.794. But projected-reference error (P-DISTS) worsens from 0.215 to 0.330, and the judged hallucination rate rises from 0.303 to 0.907. The higher quality score comes with more errors against the available evidence.</p>
+      </div>
+
+      <figure style="margin-top: 1rem;">
+        <a href="static/images/fig_prior-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+        <picture>
+          <source type="image/avif"
+                  srcset="static/images/fig_prior-w1100.avif 1100w, static/images/fig_prior-w2100.avif 2100w"
+                  sizes="(max-width: 768px) 100vw, 900px">
+          <img class="figframe" src="static/images/fig_prior-w1500.jpg" width="2100" height="619" loading="lazy"
+               alt="Three rows per scene. Without the quality term the zoom is smooth and empty. The full objective keeps coherent detail. Without the KL constraint a repetitive crosshatch pattern appears at deeper zooms.">
+        </picture>
+        </a>
+        <figcaption class="has-text-centered">Without quality guidance, predictions become smooth. Without the KL prior, repetitive patterns appear at deeper zooms. The full objective preserves more coherent detail.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================ RESULTS ============================ -->
+  <section class="section" id="results">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">The benefit grows at deeper zooms</h2>
+      <p class="has-text-centered" style="color: var(--text-secondary); max-width: 780px; margin: 0 auto 1.5rem;">We compare seven methods on seven datasets with matched inputs, zoom paths, crop geometry, and metrics. OracleZoom and Chain-of-Zoom use the same VLM prompter. The other baselines use their native SR pipelines without that shared prompter. We measure perceptual quality and agreement with the available reference, then use a VLM judge to check for contradictions with earlier zooms.</p>
+
+      <div class="table-responsive">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th rowspan="2">Method</th>
+              <th class="group" colspan="2">No-reference quality, higher is better</th>
+              <th class="group rule-left" colspan="2">Fidelity at 4&times;, where ground truth exists, lower is better</th>
+            </tr>
+            <tr>
+              <th class="n">CLIPIQA, mean</th>
+              <th class="n">CLIPIQA at 256&times;</th>
+              <th class="n rule-left">LPIPS</th>
+              <th class="n">DISTS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>HiT-SR</td><td class="n">0.414</td><td class="n">0.488</td><td class="n rule-left">0.341</td><td class="n">0.222</td></tr>
+            <tr><td>MambaIR</td><td class="n">0.428</td><td class="n">0.501</td><td class="n rule-left">0.343</td><td class="n">0.224</td></tr>
+            <tr><td>SwinIR</td><td class="n">0.456</td><td class="n">0.463</td><td class="n rule-left">0.228</td><td class="n">0.175</td></tr>
+            <tr><td>SeeSR</td><td class="n">0.546</td><td class="n">0.505</td><td class="n rule-left">0.216</td><td class="n">0.164</td></tr>
+            <tr><td>OSEDiff</td><td class="n">0.581</td><td class="n">0.532</td><td class="n rule-left">0.336</td><td class="n">0.228</td></tr>
+            <tr><td>Chain-of-Zoom</td><td class="n">0.621</td><td class="n">0.579</td><td class="n rule-left">0.215</td><td class="n">0.170</td></tr>
+            <tr class="ours">
+              <td><strong>OracleZoom</strong> <span class="model-badge">ours</span></td>
+              <td class="n"><strong>0.713</strong></td>
+              <td class="n"><strong>0.706</strong></td>
+              <td class="n rule-left"><strong>0.199</strong></td>
+              <td class="n"><strong>0.160</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="content" style="margin-top: 1.5rem;">
+        <p>OracleZoom leads the compared methods in mean CLIPIQA and aggregate 4&times; LPIPS and DISTS. CLIPIQA averages all four scales across seven test sets; fidelity averages the four datasets with 4&times; targets. At 256&times;, CLIPIQA is 0.706, compared with 0.579 for Chain-of-Zoom.</p>
+      </div>
+
+      <figure style="margin-top: 1rem;">
+        <picture>
+          <source type="image/avif" srcset="static/images/fig_depth-w2031.avif">
+          <img class="figframe" src="static/images/fig_depth-w2031.png" width="2031" height="339" loading="lazy"
+               alt="Three panels. Mean CLIPIQA stays above 0.70 for OracleZoom across 4x to 256x while baselines decline. P-DISTS at 16x is lowest for OracleZoom. Hallucination rate falls for OracleZoom and rises for Chain-of-Zoom as recursion deepens.">
+        </picture>
+        <figcaption class="has-text-centered">(a) OracleZoom maintains mean CLIPIQA above 0.70 through 256&times;. (b) Projected predictions better match the last reference at 16&times;. (c) The judge flags fewer contradictions at deeper scales. Shading marks scales without direct ground-truth targets.</figcaption>
+      </figure>
+
+      <h3 class="title is-4" style="margin-top: 3rem;">Check what the last reference can still tell us</h3>
+      <div class="content">
+        <p>At 16&times;, we can test whether generated structure still agrees with the 4&times; reference. After projection, OracleZoom achieves 0.215 P-DISTS (lower is better) and 0.691 DINOv2 similarity (higher is better), compared with 0.239 and 0.633 for Chain-of-Zoom. These scores measure preserved evidence at the reference resolution.</p>
+      </div>
+
+      <figure>
+        <a href="static/images/fig_projection-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+        <picture>
+          <source type="image/avif"
+                  srcset="static/images/fig_projection-w1100.avif 1100w, static/images/fig_projection-w2100.avif 2100w"
+                  sizes="(max-width: 768px) 100vw, 900px">
+          <img class="figframe" src="static/images/fig_projection-w1500.jpg" width="2100" height="1088" loading="lazy"
+               alt="A 16x prediction from each method is downsampled back to 4x and differenced against the aligned ground-truth region. OSEDiff and Chain-of-Zoom move the cable and panel edges and show large residuals; OracleZoom shows the smallest residual.">
+        </picture>
+        </a>
+        <figcaption class="has-text-centered">Compared with the aligned 4&times; reference, OSEDiff and Chain-of-Zoom alter the cable and panel boundaries. OracleZoom stays closer to those boundaries and produces smaller residual errors.</figcaption>
+      </figure>
+
+      <div class="content" style="margin-top: 2rem;">
+        <p>InternVL3.5-38B checks consistency with earlier zooms by comparing OracleZoom and Chain-of-Zoom on 120 region-aligned examples per scale. The judge comes from a different model family than the Qwen prompter. Win rates exclude ties and abstentions.</p>
+      </div>
+
+      <figure style="margin-top: 0.5rem;">
+        <svg class="chart" viewBox="0 0 880 275" role="img" aria-labelledby="judgeTitle judgeDesc">
+          <title id="judgeTitle">Judge preference for OracleZoom over Chain-of-Zoom by recursion scale</title>
+          <desc id="judgeDesc">Win rate with 95% Wilson intervals. At 4x it is 0.50, interval 0.38 to 0.63. At 16x it is 0.53, interval 0.44 to 0.62. At 64x it is 0.68, interval 0.59 to 0.75. At 256x it is 0.78, interval 0.70 to 0.85. The two deepest scales exclude 0.50.</desc>
+
+          <!-- grid -->
+          <line class="grid" x1="181.7" y1="30" x2="181.7" y2="212"></line>
+          <line class="grid" x1="325" y1="30" x2="325" y2="212"></line>
+          <line class="grid" x1="396.7" y1="30" x2="396.7" y2="212"></line>
+          <line class="grid" x1="468.3" y1="30" x2="468.3" y2="212"></line>
+          <line class="grid" x1="540" y1="30" x2="540" y2="212"></line>
+
+          <!-- no-preference reference -->
+          <line class="refline" x1="253.3" y1="30" x2="253.3" y2="212"></line>
+          <text class="annot" x="253.3" y="22" text-anchor="middle">no preference</text>
+
+          <!-- axis -->
+          <line class="grid" x1="110" y1="212" x2="540" y2="212"></line>
+          <text class="tick" x="181.7" y="232" text-anchor="middle">0.40</text>
+          <text class="tick" x="253.3" y="232" text-anchor="middle">0.50</text>
+          <text class="tick" x="325" y="232" text-anchor="middle">0.60</text>
+          <text class="tick" x="396.7" y="232" text-anchor="middle">0.70</text>
+          <text class="tick" x="468.3" y="232" text-anchor="middle">0.80</text>
+          <text class="tick" x="540" y="232" text-anchor="middle">0.90</text>
+          <text class="axis-title" x="325" y="262" text-anchor="middle">Share of decided comparisons that prefer OracleZoom</text>
+
+          <!-- 4x -->
+          <text class="row-label" x="95" y="57" text-anchor="end">4&#215;</text>
+          <line class="ci" x1="167.3" y1="52" x2="356.5" y2="52"></line>
+          <circle class="dot" cx="253.3" cy="52" r="6.5"></circle>
+          <text class="value" x="560" y="57">0.50</text>
+          <text class="annot" x="612" y="57">interval includes 0.50</text>
+
+          <!-- 16x -->
+          <text class="row-label" x="95" y="101" text-anchor="end">16&#215;</text>
+          <line class="ci" x1="210.3" y1="96" x2="339.3" y2="96"></line>
+          <circle class="dot" cx="274.8" cy="96" r="6.5"></circle>
+          <text class="value" x="560" y="101">0.53</text>
+          <text class="annot" x="612" y="101">interval includes 0.50</text>
+
+          <!-- 64x -->
+          <text class="row-label" x="95" y="145" text-anchor="end">64&#215;</text>
+          <line class="ci" x1="317.8" y1="140" x2="432.5" y2="140"></line>
+          <circle class="dot" cx="382.3" cy="140" r="6.5"></circle>
+          <text class="value" x="560" y="145">0.68</text>
+          <text class="annot" x="612" y="145">prefers OracleZoom</text>
+
+          <!-- 256x -->
+          <text class="row-label" x="95" y="189" text-anchor="end">256&#215;</text>
+          <line class="ci" x1="396.7" y1="184" x2="504.2" y2="184"></line>
+          <circle class="dot" cx="454" cy="184" r="6.5"></circle>
+          <text class="value" x="560" y="189">0.78</text>
+          <text class="annot" x="612" y="189">prefers OracleZoom</text>
+        </svg>
+        <figcaption><strong>The judge favors OracleZoom at 64&times; and 256&times;.</strong> Dots show win rates among decided comparisons; bars show 95% Wilson confidence intervals. At 4&times; and 16&times;, the intervals include 0.50, so the results do not establish a clear preference.</figcaption>
+
+        <details class="raw">
+          <summary>Show the raw counts</summary>
+          <div class="table-responsive">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>Scale</th><th class="n">OracleZoom</th><th class="n">Chain-of-Zoom</th>
+                  <th class="n">Tie</th><th class="n">Abstained</th><th class="n">Win rate [95% CI]</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>4&times;</td><td class="n">29</td><td class="n">29</td><td class="n">54</td><td class="n">8</td><td class="n">0.50 [0.38, 0.63]</td></tr>
+                <tr><td>16&times;</td><td class="n">60</td><td class="n">53</td><td class="n">6</td><td class="n">1</td><td class="n">0.53 [0.44, 0.62]</td></tr>
+                <tr><td>64&times;</td><td class="n">77</td><td class="n">37</td><td class="n">6</td><td class="n">0</td><td class="n">0.68 [0.59, 0.75]</td></tr>
+                <tr><td>256&times;</td><td class="n">91</td><td class="n">25</td><td class="n">4</td><td class="n">0</td><td class="n">0.78 [0.70, 0.85]</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </figure>
+
+      <div class="content" style="margin-top: 1.5rem;">
+        <p>The judge also flags predictions that contradict observable anchors. At 64&times; and 256&times;, OracleZoom's hallucination rates are 0.21 and 0.14, compared with 0.55 and 0.70 for Chain-of-Zoom. These rates measure contradictions with earlier zooms; exact recovery remains unverified.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ EXAMPLES ============================ -->
+  <section class="section hero is-light" id="examples">
+    <div class="container is-max-widescreen">
+      <h2 class="title is-3 has-text-centered">Follow the detail across different scenes</h2>
+      <p class="has-text-centered" style="color: var(--text-secondary); max-width: 760px; margin: 0 auto 1.5rem;">These examples follow the same 4&times; to 256&times; trajectory on four of the seven test sets. Compare how material texture and local boundaries evolve as each output becomes the next input. Open any figure to inspect the details.</p>
+
+      <div class="columns is-multiline">
+        <div class="column is-6">
+          <figure>
+            <a href="static/images/fig_qual_4klsdb-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+              <picture>
+                <source type="image/avif"
+                        srcset="static/images/fig_qual_4klsdb-w1100.avif 1100w, static/images/fig_qual_4klsdb-w2100.avif 2100w"
+                        sizes="(max-width: 768px) 100vw, 620px">
+                <img class="figframe" src="static/images/fig_qual_4klsdb-w1500.jpg" width="2100" height="1253" loading="lazy"
+                     alt="4KLSDB examples zoomed from 4x to 256x by OSEDiff, Chain-of-Zoom, and OracleZoom.">
+              </picture>
+            </a>
+            <figcaption><b>4KLSDB.</b> Held-out photographs from the same dataset used to select the training images.</figcaption>
+          </figure>
+        </div>
+        <div class="column is-6">
+          <figure>
+            <a href="static/images/fig_qual_ffhq-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+              <picture>
+                <source type="image/avif"
+                        srcset="static/images/fig_qual_ffhq-w1100.avif 1100w, static/images/fig_qual_ffhq-w2100.avif 2100w"
+                        sizes="(max-width: 768px) 100vw, 620px">
+                <img class="figframe" src="static/images/fig_qual_ffhq-w1500.jpg" width="2100" height="1253" loading="lazy"
+                     alt="FFHQ face examples zoomed from 4x to 256x by OSEDiff, Chain-of-Zoom, and OracleZoom.">
+              </picture>
+            </a>
+            <figcaption><b>FFHQ.</b> Face examples show how skin texture changes across successive zooms.</figcaption>
+          </figure>
+        </div>
+        <div class="column is-6">
+          <figure>
+            <a href="static/images/fig_qual_realsr-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+              <picture>
+                <source type="image/avif"
+                        srcset="static/images/fig_qual_realsr-w1100.avif 1100w, static/images/fig_qual_realsr-w2100.avif 2100w"
+                        sizes="(max-width: 768px) 100vw, 620px">
+                <img class="figframe" src="static/images/fig_qual_realsr-w1500.jpg" width="2100" height="1253" loading="lazy"
+                     alt="RealSR examples zoomed from 4x to 256x by OSEDiff, Chain-of-Zoom, and OracleZoom.">
+              </picture>
+            </a>
+            <figcaption><b>RealSR.</b> Real-camera images, where fidelity results are more mixed.</figcaption>
+          </figure>
+        </div>
+        <div class="column is-6">
+          <figure>
+            <a href="static/images/fig_qual_drealsr-w1500.jpg" target="_blank" rel="noopener" title="Open full size">
+              <picture>
+                <source type="image/avif"
+                        srcset="static/images/fig_qual_drealsr-w1100.avif 1100w, static/images/fig_qual_drealsr-w2100.avif 2100w"
+                        sizes="(max-width: 768px) 100vw, 620px">
+                <img class="figframe" src="static/images/fig_qual_drealsr-w1500.jpg" width="2100" height="1253" loading="lazy"
+                     alt="DRealSR examples zoomed from 4x to 256x by OSEDiff, Chain-of-Zoom, and OracleZoom.">
+              </picture>
+            </a>
+            <figcaption><b>DRealSR.</b> Another real-camera benchmark with more mixed fidelity results.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contributions -->
+  <section class="section" id="scope">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Contributions</h2>
+      <p class="has-text-centered" style="color: var(--text-secondary); max-width: 720px; margin: 0 auto 1.5rem;">OracleZoom shows how the last available ground truth can guide recursive super-resolution beyond direct supervision.</p>
+
+      <dl class="scope">
+        <dt>1. Formulate the supervision gap in recursive zoom.</dt>
+        <dd>We formulate recursive super-resolution when ground-truth targets become impractical at deeper scales. Each prediction becomes the next input, so training must account for errors carried across zoom steps.</dd>
+
+        <dt>2. Carry the last reference beyond that gap.</dt>
+        <dd>OracleZoom trains on its own recursive predictions. Aligned cross-scale projection checks deeper outputs against the last available ground truth, preserving observable evidence without annotations at deeper scales.</dd>
+
+        <dt>3. Separate verifiable structure from unresolved detail.</dt>
+        <dd>Direct and cross-scale supervision constrain what the reference can verify. A quality objective guides the remaining detail, a KL-constrained pretrained prior limits drift, and EMA consistency stabilizes training.</dd>
+
+        <dt>4. Improve quality and fidelity while reducing hallucination.</dt>
+        <dd>Across seven datasets, OracleZoom achieves 0.713 mean CLIPIQA and the best aggregate 4&times; LPIPS (0.199) and DISTS (0.160) among the compared methods. At 256&times;, an independent VLM judge prefers it over Chain-of-Zoom in 78% of decided comparisons and reports a lower hallucination rate (0.14 versus 0.70).</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================ RESOURCES ============================ -->
+  <section class="section hero is-light" id="resources">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Code, model, and data</h2>
+      <div class="columns is-multiline" style="margin-top: 0.5rem;">
+        <div class="column is-4">
+          <div class="resource-card">
+            <h4>Code</h4>
+            <p>Training, evaluation, and the recursion harness used for every method in the table.</p>
+            <a href="https://github.com/dipta007/OracleZoom" target="_blank" rel="noopener"
+               class="button is-small is-rounded is-dark">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.9 18.3 5.2 18.3 5.2c.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.1 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"></path></svg>
+              </span>
+              <span>GitHub</span>
+            </a>
+          </div>
+        </div>
+        <div class="column is-4">
+          <div class="resource-card">
+            <h4>Model</h4>
+            <p>The transformer with the trained LoRA adapter merged into its weights, plus the checkpoints needed for inference.</p>
+            <a href="https://huggingface.co/dipta007/OracleZoom" target="_blank" rel="noopener"
+               class="button is-small is-rounded is-dark"><span class="icon" aria-hidden="true">🤗</span><span>Merged model weights</span></a>
+          </div>
+        </div>
+        <div class="column is-4">
+          <div class="resource-card">
+            <h4>Training data</h4>
+            <p>The 1,000-image curated split, selected from 129,484 4KLSDB candidates.</p>
+            <a href="https://huggingface.co/datasets/dipta007/OracleZoom-4KLSDB-train" target="_blank" rel="noopener"
+               class="button is-small is-rounded is-dark"><span class="icon" aria-hidden="true">🤗</span><span>Dataset</span></a>
+          </div>
+        </div>
+      </div>
+      <p class="has-text-centered" style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 1rem;">
+        The preprint is not posted yet. The paper link on this page will point to it as soon as it is.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================ BIBTEX ============================ -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <div class="bibtex-header">
+        <h2 class="title">BibTeX</h2>
+        <button class="copy-bibtex-btn" onclick="copyBibTeX()" title="Copy BibTeX to clipboard">
+          <span class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>
+          </span>
+          <span class="copy-text">Copy</span>
+        </button>
+      </div>
+      <pre id="bibtex-code"><code>@misc{dipta2026oraclezoom,
+  title  = {OracleZoom: On-Policy Self-Distillation Inspired Reference-Constrained
+            Recursive Image Super Resolution},
+  author = {Roy Dipta, Shubhashis and Saha, Sourajit and Saha, Shaswati and Sarwar, Nobin},
+  year   = {2026},
+  url    = {https://github.com/dipta007/OracleZoom},
+  note   = {Preprint in preparation. Under submission to WACV 2027}
+}</code></pre>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content has-text-centered" style="color: var(--text-secondary);">
+            <p>
+              This page was built using the
+              <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank" rel="noopener">Academic Project Page Template</a>,
+              and is licensed under a
+              <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  </main>
+
+</body>
+</html>
