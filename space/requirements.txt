@@ -4,7 +4,7 @@
 # `spaces` is deliberately absent. The platform pins its own copy and a second pin breaks pip.
 torch==2.8.0
 torchvision==0.23.0
-diffusers==0.32.2
+diffusers==0.38.0
 transformers==4.49.0
 accelerate
 peft>=0.13
