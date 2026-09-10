@@ -2,7 +2,7 @@
 # pyproject.toml. diffusers stays at the paper's version: the SR LoRA is injected by matching
 # the class name "AdaLayerNormZero", so a diffusers rename would silently inject nothing.
 # `spaces` is deliberately absent. The platform pins its own copy and a second pin breaks pip.
-torch==2.8.0
+torch==2.13.0
 torchvision==0.23.0
 diffusers==0.32.2
 transformers==4.49.0
